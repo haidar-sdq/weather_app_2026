@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.env.*
+*.log
+cloudbuild.yaml
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+
+# OS / IDE
+.vscode/
+.DS_Store
