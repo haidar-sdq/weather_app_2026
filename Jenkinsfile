@@ -30,7 +30,7 @@ pipeline {
             steps {
                 sh '''
                 gcloud auth configure-docker asia-south1-docker.pkg.dev -q
-                gcloud builds submit --tag $IMAGE --quiet || true
+                gcloud builds submit --tag $IMAGE --format="value(id)"
                 '''
             }
         }
