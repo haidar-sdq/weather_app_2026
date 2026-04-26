@@ -30,7 +30,9 @@ pipeline {
             steps {
                 sh '''
                 gcloud auth configure-docker asia-south1-docker.pkg.dev -q
-                gcloud builds submit --tag $IMAGE --format="value(id)"
+                gcloud builds submit \
+                --service-account=projects/project-7aaa7a69-7aef-409d-94b/serviceAccounts/cloud-build-sa-465881762218@project-7aaa7a69-7aef-409d-94b.iam.gserviceaccount.com \
+                --tag $IMAGE
                 '''
             }
         }
