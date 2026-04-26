@@ -5,6 +5,13 @@ provider "google" {
 
 data "google_project" "project" {}
 
+terraform {
+  backend "gcs" {
+    bucket  = "weather-tf-state-bucket"
+    prefix  = "terraform/state"
+  }
+}
+
 module "artifact_registry" {
   source    = "./modules/artifact_registry"
   repo_name = var.repo_name
