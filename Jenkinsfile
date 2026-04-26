@@ -42,7 +42,7 @@ pipeline {
             steps {
                 dir('terraform') {
                     sh '''
-                    terraform init
+                    terraform init -input=false -reconfigure
                     terraform apply -auto-approve \
                       -var="image=$IMAGE"
                     '''
