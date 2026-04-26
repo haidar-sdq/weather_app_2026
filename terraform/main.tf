@@ -13,8 +13,6 @@ module "artifact_registry" {
 
 module "secrets" {
   source           = "./modules/secrets"
-  weather_api_key  = var.weather_api_key
-  jwt_secret       = var.jwt_secret
   project_number   = data.google_project.project.number
 }
 

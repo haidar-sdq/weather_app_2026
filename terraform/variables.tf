@@ -15,6 +15,3 @@ variable "service_name" {
 }
 
 variable "image" {}
-
-variable "weather_api_key" {}
-variable "jwt_secret" {}
