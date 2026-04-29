@@ -5,10 +5,12 @@ venv/
 .env.*
 *.log
 
-# Terraform
-.terraform/
-terraform.tfstate
-terraform.tfstate.*
+# Terraform (all environments)
+**/.terraform/
+**/.terraform.lock.hcl
+
+**/terraform.tfstate
+**/terraform.tfstate.*
 
 # OS / IDE
 .vscode/

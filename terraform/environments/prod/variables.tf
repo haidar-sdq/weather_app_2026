@@ -6,9 +6,14 @@ variable "region" {
   default = "asia-south1"
 }
 
-variable "repo_name" {
-  default = "weather-repo"
+variable "environment" {
+  type = string
 }
+
+locals {
+  repo_name = "weather-repo-${var.environment}"
+}
+
 
 variable "service_name" {
   default = "weather-app"

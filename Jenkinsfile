@@ -1,13 +1,17 @@
 pipeline {
     agent any
 
+    parameters {
+    choice(name: 'ENV', choices: ['dev', 'prod'])
+    }
+
     environment {
         PROJECT_ID = "project-7aaa7a69-7aef-409d-94b"
         REGION = "asia-south1"
         REPO = "weather-repo"
         IMAGE = "asia-south1-docker.pkg.dev/${PROJECT_ID}/${REPO}/weather-app:${BUILD_NUMBER}"
     }
-
+    
     stages {
 
         stage('Checkout Code') {
@@ -38,15 +42,51 @@ pipeline {
             }
         }
 
+        stage('Approve Prod Deployment') {
+            when {
+                expression { params.ENV == 'prod' }
+            }
+            steps {
+                input message: "Approve deployment to PROD?"
+            }
+        }
+
         stage('Terraform Deploy') {
             steps {
-                dir('terraform') {
+                dir("terraform/environments/${ENV}") {
                     sh '''
-                    rm -rf .terraform
-                    rm -f terraform.tfstate terraform.tfstate.*
                     terraform init -input=false -reconfigure
-                    terraform apply -auto-approve \
-                      -var="image=$IMAGE"
+                    terraform plan -out=tfplan -var="image=$IMAGE"
+                    terraform apply -auto-approve tfplan
+                    '''
+                }
+
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                dir("terraform/environments/${ENV}") {
+                    sh '''
+                    URL=$(terraform output -raw service_url)
+
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL/api/v1/weather/Delhi)
+
+                    if [ "$STATUS" != "200" ]; then
+                    echo "Health check failed. Rolling back..."
+
+                    PREV=$(gcloud run revisions list \
+                        --service weather-app-${ENV} \
+                        --region asia-south1 \
+                        --format="value(metadata.name)" \
+                        --limit=2 | tail -n 1)
+
+                    gcloud run services update-traffic weather-app-${ENV} \
+                        --to-revisions=$PREV=100 \
+                        --region asia-south1
+
+                    exit 1
+                    fi
                     '''
                 }
             }
