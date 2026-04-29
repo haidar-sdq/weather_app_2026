@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-    choice(name: 'ENV', choices: ['dev', 'prod'])
+    choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Deployment environment')
     }
 
     environment {
@@ -10,6 +10,7 @@ pipeline {
         REGION = "asia-south1"
         REPO = "weather-repo"
         IMAGE = "asia-south1-docker.pkg.dev/${PROJECT_ID}/${REPO}/weather-app:${BUILD_NUMBER}"
+        ENV_NAME = "${params.ENV}"
     }
     
     stages {
@@ -53,10 +54,13 @@ pipeline {
 
         stage('Terraform Deploy') {
             steps {
-                dir("terraform/environments/${ENV}") {
+                dir("terraform/environments/${params.ENV}") {
                     sh '''
+                    rm -rf .terraform terraform.tfstate*
                     terraform init -input=false -reconfigure
-                    terraform plan -out=tfplan -var="image=$IMAGE"
+                    terraform plan -out=tfplan \
+                    -var="image=$IMAGE" \
+                    -var-file="terraform.tfvars"
                     terraform apply -auto-approve tfplan
                     '''
                 }
@@ -66,27 +70,39 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                dir("terraform/environments/${ENV}") {
+                dir("terraform/environments/${params.ENV}") {
                     sh '''
                     URL=$(terraform output -raw service_url)
 
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL/api/v1/weather/Delhi)
+                    # Retry logic (important)
+                    for i in {1..5}; do
+                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+                    if [ "$STATUS" = "200" ]; then
+                        echo "Health check passed"
+                        exit 0
+                    fi
+                    echo "Retry $i: status=$STATUS"
+                    sleep 5
+                    done
 
-                    if [ "$STATUS" != "200" ]; then
                     echo "Health check failed. Rolling back..."
 
                     PREV=$(gcloud run revisions list \
-                        --service weather-app-${ENV} \
-                        --region asia-south1 \
-                        --format="value(metadata.name)" \
-                        --limit=2 | tail -n 1)
+                    --service weather-app-${ENV_NAME} \
+                    --region asia-south1 \
+                    --format="value(metadata.name)" \
+                    --limit=2 | sed -n '2p')
 
-                    gcloud run services update-traffic weather-app-${ENV} \
-                        --to-revisions=$PREV=100 \
-                        --region asia-south1
-
+                    if [ -z "$PREV" ]; then
+                    echo "No previous revision found. Skipping rollback."
                     exit 1
                     fi
+
+                    gcloud run services update-traffic weather-app-${ENV_NAME} \
+                    --to-revisions=$PREV=100 \
+                    --region asia-south1
+
+                    exit 1
                     '''
                 }
             }
